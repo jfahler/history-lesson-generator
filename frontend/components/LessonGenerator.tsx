@@ -28,10 +28,31 @@ export function LessonGenerator({ onLessonsGenerated, onLoadingChange }: LessonG
 
     try {
       const response = await backend.lesson.generate({ standard: standard.trim() });
-      onLessonsGenerated(response.lessons);
+      
+      if (response && response.lessons && Array.isArray(response.lessons)) {
+        onLessonsGenerated(response.lessons);
+      } else {
+        console.error("Invalid response structure:", response);
+        setError("Received invalid response from server. Please try again.");
+      }
     } catch (err) {
       console.error("Error generating lessons:", err);
-      setError("Failed to generate lesson ideas. Please try again.");
+      
+      let errorMessage = "Failed to generate lesson ideas. Please try again.";
+      
+      if (err instanceof Error) {
+        if (err.message.includes("OpenAI API key not configured")) {
+          errorMessage = "The OpenAI API key is not configured. Please contact the administrator.";
+        } else if (err.message.includes("OpenAI API error")) {
+          errorMessage = "There was an issue with the AI service. Please try again in a moment.";
+        } else if (err.message.includes("Teaching standard is required")) {
+          errorMessage = "Please enter a valid teaching standard.";
+        } else if (err.message.includes("internal")) {
+          errorMessage = "An internal server error occurred. Please try again or contact support if the issue persists.";
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       onLoadingChange(false);
     }
