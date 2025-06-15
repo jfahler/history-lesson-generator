@@ -1,0 +1,1 @@
+{"id": "history-lesson-generator-chf2", "lang": "typescript"}
