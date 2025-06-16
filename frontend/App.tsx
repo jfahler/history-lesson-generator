@@ -6,13 +6,23 @@ import type { LessonIdea } from "~backend/lesson/generate";
 export default function App() {
   const [lessons, setLessons] = useState<LessonIdea[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [originalStandard, setOriginalStandard] = useState("");
 
-  const handleLessonsGenerated = (newLessons: LessonIdea[]) => {
+  const handleLessonsGenerated = (newLessons: LessonIdea[], standard: string) => {
     setLessons(newLessons);
+    setOriginalStandard(standard);
+    setShowResults(true);
   };
 
   const handleLoadingChange = (loading: boolean) => {
     setIsLoading(loading);
+  };
+
+  const handleBackToSearch = () => {
+    setShowResults(false);
+    setLessons([]);
+    setOriginalStandard("");
   };
 
   return (
@@ -28,11 +38,19 @@ export default function App() {
           </p>
         </header>
 
-        <div className="max-w-4xl mx-auto">
-          <LessonGenerator 
-            onLessonsGenerated={handleLessonsGenerated}
-            onLoadingChange={handleLoadingChange}
-          />
+        <div className="max-w-7xl mx-auto">
+          {!showResults ? (
+            <LessonGenerator 
+              onLessonsGenerated={handleLessonsGenerated}
+              onLoadingChange={handleLoadingChange}
+            />
+          ) : (
+            <LessonResults 
+              lessons={lessons} 
+              originalStandard={originalStandard}
+              onBackToSearch={handleBackToSearch}
+            />
+          )}
           
           {isLoading && (
             <div className="text-center py-8">
@@ -44,10 +62,6 @@ export default function App() {
                 Generating lesson ideas...
               </div>
             </div>
-          )}
-
-          {lessons.length > 0 && !isLoading && (
-            <LessonResults lessons={lessons} />
           )}
         </div>
       </div>

@@ -7,7 +7,7 @@ import backend from "~backend/client";
 import type { LessonIdea } from "~backend/lesson/generate";
 
 interface LessonGeneratorProps {
-  onLessonsGenerated: (lessons: LessonIdea[]) => void;
+  onLessonsGenerated: (lessons: LessonIdea[], standard: string) => void;
   onLoadingChange: (loading: boolean) => void;
 }
 
@@ -30,7 +30,7 @@ export function LessonGenerator({ onLessonsGenerated, onLoadingChange }: LessonG
       const response = await backend.lesson.generate({ standard: standard.trim() });
       
       if (response && response.lessons && Array.isArray(response.lessons)) {
-        onLessonsGenerated(response.lessons);
+        onLessonsGenerated(response.lessons, standard.trim());
       } else {
         console.error("Invalid response structure:", response);
         setError("Received invalid response from server. Please try again.");
@@ -59,7 +59,7 @@ export function LessonGenerator({ onLessonsGenerated, onLoadingChange }: LessonG
   };
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8 max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <BookOpen className="h-5 w-5" />
