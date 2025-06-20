@@ -2,16 +2,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Clock, Users, Target, ExternalLink, FileText, Image, Video, Map, Volume2, MapPin, Globe } from "lucide-react";
+import { ArrowLeft, Clock, Users, Target, ExternalLink, FileText, Image, Video, Map, Volume2, MapPin, Globe, Hash, Sparkles } from "lucide-react";
 import type { LessonIdea } from "~backend/lesson/generate";
 
 interface LessonResultsProps {
   lessons: LessonIdea[];
   originalStandard: string;
+  cleanedStandard: string;
+  extractedTopics: string[];
   onBackToSearch: () => void;
 }
 
-export function LessonResults({ lessons, originalStandard, onBackToSearch }: LessonResultsProps) {
+export function LessonResults({ lessons, originalStandard, cleanedStandard, extractedTopics, onBackToSearch }: LessonResultsProps) {
   const getResourceIcon = (type: string) => {
     switch (type) {
       case "video": return <Video className="h-4 w-4" />;
@@ -31,29 +33,12 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
     }
   };
 
-  // Extract regions and places from the standard and lessons
-  const extractRegionsAndPlaces = () => {
-    const text = `${originalStandard} ${lessons.map(l => l.description).join(' ')}`;
-    const regions = [];
-    
-    // Common historical regions and places
-    const regionKeywords = [
-      'Europe', 'Asia', 'Africa', 'Americas', 'Middle East', 'Mediterranean', 'Atlantic', 'Pacific',
-      'China', 'India', 'Japan', 'Russia', 'Ottoman Empire', 'Byzantine', 'Roman Empire',
-      'France', 'Britain', 'Germany', 'Spain', 'Italy', 'Greece', 'Egypt', 'Persia',
-      'Mesopotamia', 'Anatolia', 'Balkans', 'Scandinavia', 'Iberian Peninsula'
-    ];
-
-    regionKeywords.forEach(region => {
-      if (text.toLowerCase().includes(region.toLowerCase())) {
-        regions.push(region);
-      }
-    });
-
-    return [...new Set(regions)].slice(0, 6); // Remove duplicates and limit to 6
+  // Create search queries for external resources using extracted topics
+  const createSearchQuery = (topics: string[], maxLength: number = 100) => {
+    return topics.slice(0, 5).join(' ').substring(0, maxLength);
   };
 
-  const regions = extractRegionsAndPlaces();
+  const searchQuery = createSearchQuery(extractedTopics);
 
   return (
     <div className="space-y-6">
@@ -69,16 +54,46 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
         </Button>
       </div>
 
-      {/* Standards Section */}
+      {/* Standards Section with Processing Info */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="text-xl">Teaching Standard</CardTitle>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            Processed Teaching Standard
+          </CardTitle>
+          <CardDescription>
+            The original standard has been cleaned and key topics extracted for better resource targeting
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-gray-700 leading-relaxed">{originalStandard}</p>
+        <CardContent className="space-y-6">
+          {/* Cleaned Standard */}
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-2">Cleaned Standard</h4>
+            <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-lg border border-blue-200">
+              {cleanedStandard}
+            </p>
+          </div>
+
+          {/* Extracted Topics */}
+          {extractedTopics.length > 0 && (
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Hash className="h-4 w-4" />
+                Key Topics Identified
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {extractedTopics.map((topic, idx) => (
+                  <Badge key={idx} variant="secondary" className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {topic}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Learning Objectives from all lessons */}
-          <div className="mt-6">
+          <div>
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Target className="h-4 w-4" />
               Specific Learning Objectives
@@ -98,32 +113,10 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Left Column - Activities and Regions */}
+        {/* Left Column - Activities */}
         <div className="space-y-6">
           
-          {/* Regions and Places */}
-          {regions.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Relevant Regions & Places
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {regions.map((region, idx) => (
-                    <Badge key={idx} variant="outline" className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {region}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Activities by Topic */}
+          {/* Topic-Specific Activities by Lesson */}
           {lessons.map((lesson, index) => (
             <Card key={index}>
               <CardHeader>
@@ -149,7 +142,7 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                   </h4>
                   <ul className="space-y-2">
                     {lesson.activities.map((activity, idx) => (
-                      <li key={idx} className="text-gray-700 flex items-start gap-2 p-2 bg-green-50 rounded">
+                      <li key={idx} className="text-gray-700 flex items-start gap-2 p-3 bg-green-50 rounded border border-green-200">
                         <span className="text-green-500 mt-1 text-sm">•</span>
                         <span className="text-sm">{activity}</span>
                       </li>
@@ -164,11 +157,13 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
         {/* Right Column - Resources and Multimedia */}
         <div className="space-y-6">
           
-          {/* Enhanced Resources */}
+          {/* Enhanced Resources with Topic-Specific Searches */}
           <Card>
             <CardHeader>
               <CardTitle>Primary Sources & Academic Resources</CardTitle>
-              <CardDescription>Curated from JSTOR, Archive.org, and History Commons</CardDescription>
+              <CardDescription>
+                Targeted searches using extracted topics: {extractedTopics.slice(0, 3).join(', ')}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               
@@ -177,7 +172,7 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                 <h5 className="font-medium text-gray-900 mb-2">JSTOR Primary Sources</h5>
                 <div className="space-y-2">
                   <a 
-                    href={`https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(originalStandard.substring(0, 100))}`}
+                    href={`https://www.jstor.org/action/doBasicSearch?Query=${encodeURIComponent(searchQuery)}`}
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -186,9 +181,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                       <FileText className="h-4 w-4 mt-1" />
                       <div>
                         <p className="font-medium text-indigo-600 hover:text-indigo-800">
-                          Search JSTOR for Primary Sources
+                          Search JSTOR: {extractedTopics.slice(0, 3).join(', ')}
                         </p>
-                        <p className="text-sm text-gray-600">Academic articles and primary documents related to your topic</p>
+                        <p className="text-sm text-gray-600">Academic articles and primary documents related to your specific topics</p>
                       </div>
                     </div>
                   </a>
@@ -202,7 +197,7 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                 <h5 className="font-medium text-gray-900 mb-2">Internet Archive</h5>
                 <div className="space-y-2">
                   <a 
-                    href={`https://archive.org/search.php?query=${encodeURIComponent(originalStandard.substring(0, 100))}`}
+                    href={`https://archive.org/search.php?query=${encodeURIComponent(searchQuery)}`}
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -211,9 +206,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                       <FileText className="h-4 w-4 mt-1" />
                       <div>
                         <p className="font-medium text-indigo-600 hover:text-indigo-800">
-                          Search Archive.org
+                          Search Archive.org: {extractedTopics.slice(0, 3).join(', ')}
                         </p>
-                        <p className="text-sm text-gray-600">Historical documents, books, and multimedia resources</p>
+                        <p className="text-sm text-gray-600">Historical documents, books, and multimedia resources for your topics</p>
                       </div>
                     </div>
                   </a>
@@ -222,12 +217,12 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
 
               <Separator />
 
-              {/* History Commons */}
+              {/* World History Encyclopedia */}
               <div>
-                <h5 className="font-medium text-gray-900 mb-2">History Commons</h5>
+                <h5 className="font-medium text-gray-900 mb-2">World History Encyclopedia</h5>
                 <div className="space-y-2">
                   <a 
-                    href="https://history-commons.net/"
+                    href={`https://www.google.com/search?q=site:worldhistory.org+${encodeURIComponent(searchQuery)}`}
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -236,9 +231,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                       <Globe className="h-4 w-4 mt-1" />
                       <div>
                         <p className="font-medium text-indigo-600 hover:text-indigo-800">
-                          Browse History Commons
+                          Search World History Encyclopedia
                         </p>
-                        <p className="text-sm text-gray-600">Collaborative historical research and timelines</p>
+                        <p className="text-sm text-gray-600">Scholarly articles on {extractedTopics.slice(0, 3).join(', ')}</p>
                       </div>
                     </div>
                   </a>
@@ -284,7 +279,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
           <Card>
             <CardHeader>
               <CardTitle>Multimedia Resources</CardTitle>
-              <CardDescription>Educational videos and interactive content</CardDescription>
+              <CardDescription>
+                Educational videos and interactive content for: {extractedTopics.slice(0, 3).join(', ')}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               
@@ -292,7 +289,7 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
               <div>
                 <h5 className="font-medium text-gray-900 mb-2">Heimler History Videos</h5>
                 <a 
-                  href={`https://www.youtube.com/results?search_query=Heimler+history+${encodeURIComponent(originalStandard.substring(0, 50))}`}
+                  href={`https://www.youtube.com/results?search_query=Heimler+history+${encodeURIComponent(searchQuery)}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -301,9 +298,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                     <Video className="h-4 w-4 mt-1" />
                     <div>
                       <p className="font-medium text-indigo-600 hover:text-indigo-800">
-                        Search Heimler History on YouTube
+                        Search Heimler History: {extractedTopics.slice(0, 2).join(', ')}
                       </p>
-                      <p className="text-sm text-gray-600">AP World History review videos and explanations</p>
+                      <p className="text-sm text-gray-600">AP World History review videos for your specific topics</p>
                     </div>
                   </div>
                 </a>
@@ -315,7 +312,7 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
               <div>
                 <h5 className="font-medium text-gray-900 mb-2">Smarthistory</h5>
                 <a 
-                  href={`https://www.google.com/search?q=site:smarthistory.org+${encodeURIComponent(originalStandard.substring(0, 50))}`}
+                  href={`https://www.google.com/search?q=site:smarthistory.org+${encodeURIComponent(searchQuery)}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -324,9 +321,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                     <Image className="h-4 w-4 mt-1" />
                     <div>
                       <p className="font-medium text-indigo-600 hover:text-indigo-800">
-                        Search Smarthistory
+                        Search Smarthistory: {extractedTopics.slice(0, 2).join(', ')}
                       </p>
-                      <p className="text-sm text-gray-600">Art history and cultural context resources</p>
+                      <p className="text-sm text-gray-600">Art history and cultural context for your topics</p>
                     </div>
                   </div>
                 </a>
@@ -338,7 +335,7 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
               <div>
                 <h5 className="font-medium text-gray-900 mb-2">BBC History</h5>
                 <a 
-                  href={`https://www.youtube.com/results?search_query=BBC+history+${encodeURIComponent(originalStandard.substring(0, 50))}`}
+                  href={`https://www.youtube.com/results?search_query=BBC+history+${encodeURIComponent(searchQuery)}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -347,9 +344,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
                     <Video className="h-4 w-4 mt-1" />
                     <div>
                       <p className="font-medium text-indigo-600 hover:text-indigo-800">
-                        Search BBC History on YouTube
+                        Search BBC History: {extractedTopics.slice(0, 2).join(', ')}
                       </p>
-                      <p className="text-sm text-gray-600">Documentary clips and historical analysis</p>
+                      <p className="text-sm text-gray-600">Documentary clips and historical analysis for your topics</p>
                     </div>
                   </div>
                 </a>
@@ -395,6 +392,9 @@ export function LessonResults({ lessons, originalStandard, onBackToSearch }: Les
             <Card>
               <CardHeader>
                 <CardTitle>Primary Source Excerpts</CardTitle>
+                <CardDescription>
+                  Historical documents related to: {extractedTopics.slice(0, 3).join(', ')}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

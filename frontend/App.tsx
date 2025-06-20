@@ -8,10 +8,19 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [originalStandard, setOriginalStandard] = useState("");
+  const [cleanedStandard, setCleanedStandard] = useState("");
+  const [extractedTopics, setExtractedTopics] = useState<string[]>([]);
 
-  const handleLessonsGenerated = (newLessons: LessonIdea[], standard: string) => {
+  const handleLessonsGenerated = (
+    newLessons: LessonIdea[], 
+    standard: string, 
+    cleaned: string, 
+    topics: string[]
+  ) => {
     setLessons(newLessons);
     setOriginalStandard(standard);
+    setCleanedStandard(cleaned);
+    setExtractedTopics(topics);
     setShowResults(true);
   };
 
@@ -23,6 +32,8 @@ export default function App() {
     setShowResults(false);
     setLessons([]);
     setOriginalStandard("");
+    setCleanedStandard("");
+    setExtractedTopics([]);
   };
 
   return (
@@ -48,6 +59,8 @@ export default function App() {
             <LessonResults 
               lessons={lessons} 
               originalStandard={originalStandard}
+              cleanedStandard={cleanedStandard}
+              extractedTopics={extractedTopics}
               onBackToSearch={handleBackToSearch}
             />
           )}

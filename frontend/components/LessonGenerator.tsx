@@ -7,7 +7,7 @@ import backend from "~backend/client";
 import type { LessonIdea } from "~backend/lesson/generate";
 
 interface LessonGeneratorProps {
-  onLessonsGenerated: (lessons: LessonIdea[], standard: string) => void;
+  onLessonsGenerated: (lessons: LessonIdea[], standard: string, cleaned: string, topics: string[]) => void;
   onLoadingChange: (loading: boolean) => void;
 }
 
@@ -30,7 +30,12 @@ export function LessonGenerator({ onLessonsGenerated, onLoadingChange }: LessonG
       const response = await backend.lesson.generate({ standard: standard.trim() });
       
       if (response && response.lessons && Array.isArray(response.lessons)) {
-        onLessonsGenerated(response.lessons, standard.trim());
+        onLessonsGenerated(
+          response.lessons, 
+          standard.trim(), 
+          response.cleanedStandard || standard.trim(),
+          response.extractedTopics || []
+        );
       } else {
         console.error("Invalid response structure:", response);
         setError("Received invalid response from server. Please try again.");
@@ -66,14 +71,15 @@ export function LessonGenerator({ onLessonsGenerated, onLoadingChange }: LessonG
           Enter Teaching Standard
         </CardTitle>
         <CardDescription>
-          Provide a world history teaching standard from College Board CED or K-12 state standards
+          Provide a world history teaching standard from College Board CED or K-12 state standards. 
+          The system will automatically clean up duplicates and extract key topics.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Textarea
-              placeholder="Example: Students will analyze the causes and effects of the Industrial Revolution in Europe and its global impact from 1750-1900..."
+              placeholder="Example: History. The student understands the contributions and influence of classical civilizations from 500 BC to AD 600 on subsequent civilizations. The student is expected to: (3)(A) describe the major political, religious/philosophical, and cultural influences of Persia, India, China, Israel, Greece, and Rome..."
               value={standard}
               onChange={(e) => setStandard(e.target.value)}
               className="min-h-[120px] resize-none"
