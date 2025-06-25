@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, Clock, Users, Target, ExternalLink, FileText, Image, Video, Map, Volume2, MapPin, Globe, Hash, Sparkles, BookOpen, Activity, Award, Download, Info, Gamepad2, Brain, Puzzle, Search, Zap, Eye, Users2, Pen, MessageSquare, Star } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Clock, Users, Target, ExternalLink, FileText, Image, Video, Map, Volume2, MapPin, Globe, Hash, Sparkles, BookOpen, Activity, Award, Info, Gamepad2, Brain, Puzzle, Search, Zap, Eye, Users2, Pen, MessageSquare, Star } from "lucide-react";
+import { useState, Suspense } from "react";
+import { LoadingSpinner } from "./LoadingSpinner";
 import type { LessonIdea, SuggestedActivity } from "~backend/lesson/generate";
 
 interface LessonResultsProps {
@@ -345,6 +346,85 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
   );
 
   const renderResources = () => (
+    <Suspense fallback={<LoadingSpinner message="Loading resources..." />}>
+      <ResourcesSection 
+        extractedTopics={extractedTopics}
+        detectedGradeLevel={detectedGradeLevel}
+        searchQuery={searchQuery}
+        lessons={lessons}
+        getResourceIcon={getResourceIcon}
+        getMultimediaIcon={getMultimediaIcon}
+      />
+    </Suspense>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header with back button */}
+      <div className="flex items-center justify-between mb-6">
+        <Button 
+          onClick={onBackToSearch}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Search for another topic
+        </Button>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <Button
+          variant={activeTab === 'overview' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('overview')}
+          className="flex-1"
+        >
+          Overview
+        </Button>
+        <Button
+          variant={activeTab === 'lessons' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('lessons')}
+          className="flex-1"
+        >
+          Lesson Plans ({lessons.length})
+        </Button>
+        <Button
+          variant={activeTab === 'resources' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('resources')}
+          className="flex-1"
+        >
+          Resources
+        </Button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && renderOverview()}
+      {activeTab === 'lessons' && renderLessons()}
+      {activeTab === 'resources' && renderResources()}
+    </div>
+  );
+}
+
+// Separate component for resources section
+function ResourcesSection({ 
+  extractedTopics, 
+  detectedGradeLevel, 
+  searchQuery, 
+  lessons, 
+  getResourceIcon, 
+  getMultimediaIcon 
+}: {
+  extractedTopics: string[];
+  detectedGradeLevel: string;
+  searchQuery: string;
+  lessons: LessonIdea[];
+  getResourceIcon: (type: string) => JSX.Element;
+  getMultimediaIcon: (type: string) => JSX.Element;
+}) {
+  return (
     <div className="space-y-6">
       {/* Academic Resources */}
       <Card>
@@ -569,55 +649,6 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
           )}
         </CardContent>
       </Card>
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center justify-between mb-6">
-        <Button 
-          onClick={onBackToSearch}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Search for another topic
-        </Button>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-        <Button
-          variant={activeTab === 'overview' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setActiveTab('overview')}
-          className="flex-1"
-        >
-          Overview
-        </Button>
-        <Button
-          variant={activeTab === 'lessons' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setActiveTab('lessons')}
-          className="flex-1"
-        >
-          Lesson Plans ({lessons.length})
-        </Button>
-        <Button
-          variant={activeTab === 'resources' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setActiveTab('resources')}
-          className="flex-1"
-        >
-          Resources
-        </Button>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'overview' && renderOverview()}
-      {activeTab === 'lessons' && renderLessons()}
-      {activeTab === 'resources' && renderResources()}
     </div>
   );
 }

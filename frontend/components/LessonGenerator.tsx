@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BookOpen, Info, Lightbulb, AlertCircle, Wifi, Clock, Zap, CheckCircle2, Timer } from "lucide-react";
-import backend from "~backend/client";
+import { LoadingSpinner } from "./LoadingSpinner";
 import type { LessonIdea } from "~backend/lesson/generate";
+
+// Lazy load the backend client to reduce initial bundle size
+const useBackendClient = () => {
+  return lazy(() => import("~backend/client"));
+};
 
 interface LessonGeneratorProps {
   onLessonsGenerated: (lessons: LessonIdea[], standard: string, cleaned: string, topics: string[]) => void;
@@ -35,6 +40,17 @@ export function LessonGenerator({
   const [error, setError] = useState<ErrorState | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [retryCountdown, setRetryCountdown] = useState(0);
+  const [backendClient, setBackendClient] = useState<any>(null);
+
+  // Lazy load backend client when needed
+  const loadBackendClient = async () => {
+    if (!backendClient) {
+      const { default: backend } = await import("~backend/client");
+      setBackendClient(backend);
+      return backend;
+    }
+    return backendClient;
+  };
 
   const getErrorIcon = (type: string) => {
     switch (type) {
@@ -230,6 +246,9 @@ export function LessonGenerator({
     const progressInterval = simulateProgress();
 
     try {
+      // Load backend client dynamically
+      const backend = await loadBackendClient();
+      
       const response = await backend.lesson.generate({ standard: standard.trim() });
       
       clearInterval(progressInterval);
@@ -386,54 +405,63 @@ export function LessonGenerator({
         </CardContent>
       </Card>
 
-      {/* Tips Card */}
-      <Card className="max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Lightbulb className="h-5 w-5 text-yellow-500" />
-            Tips for Better Results
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <Info className="h-4 w-4 mt-1 text-blue-500" />
-              <div>
-                <p className="font-medium text-gray-900">Be Specific About Your Topic</p>
-                <p className="text-sm text-gray-600">Mention specific civilizations, empires, time periods, or historical events (e.g., "Mongol Empire," "Renaissance Italy," "Industrial Revolution").</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Info className="h-4 w-4 mt-1 text-blue-500" />
-              <div>
-                <p className="font-medium text-gray-900">Include Key Historical Concepts</p>
-                <p className="text-sm text-gray-600">Reference themes like trade, religion, politics, culture, war, or technological developments for richer lesson content.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Info className="h-4 w-4 mt-1 text-blue-500" />
-              <div>
-                <p className="font-medium text-gray-900">Mention Time Periods</p>
-                <p className="text-sm text-gray-600">Include specific dates, centuries, or historical periods to help target relevant primary sources and resources.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Info className="h-4 w-4 mt-1 text-blue-500" />
-              <div>
-                <p className="font-medium text-gray-900">Focus on Learning Objectives</p>
-                <p className="text-sm text-gray-600">Include the specific skills students should demonstrate (analyze, compare, evaluate, etc.) for better-targeted activities.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Timer className="h-4 w-4 mt-1 text-purple-500" />
-              <div>
-                <p className="font-medium text-gray-900">High Demand Notice</p>
-                <p className="text-sm text-gray-600">Due to high usage, you may experience brief delays or rate limits. Shorter, more focused standards process faster and are less likely to encounter issues.</p>
-              </div>
+      {/* Tips Card - Lazy load this section */}
+      <Suspense fallback={<LoadingSpinner message="Loading tips..." size="sm" />}>
+        <TipsCard />
+      </Suspense>
+    </div>
+  );
+}
+
+// Separate tips component for lazy loading
+function TipsCard() {
+  return (
+    <Card className="max-w-4xl mx-auto">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Lightbulb className="h-5 w-5 text-yellow-500" />
+          Tips for Better Results
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <Info className="h-4 w-4 mt-1 text-blue-500" />
+            <div>
+              <p className="font-medium text-gray-900">Be Specific About Your Topic</p>
+              <p className="text-sm text-gray-600">Mention specific civilizations, empires, time periods, or historical events (e.g., "Mongol Empire," "Renaissance Italy," "Industrial Revolution").</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="flex items-start gap-3">
+            <Info className="h-4 w-4 mt-1 text-blue-500" />
+            <div>
+              <p className="font-medium text-gray-900">Include Key Historical Concepts</p>
+              <p className="text-sm text-gray-600">Reference themes like trade, religion, politics, culture, war, or technological developments for richer lesson content.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Info className="h-4 w-4 mt-1 text-blue-500" />
+            <div>
+              <p className="font-medium text-gray-900">Mention Time Periods</p>
+              <p className="text-sm text-gray-600">Include specific dates, centuries, or historical periods to help target relevant primary sources and resources.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Info className="h-4 w-4 mt-1 text-blue-500" />
+            <div>
+              <p className="font-medium text-gray-900">Focus on Learning Objectives</p>
+              <p className="text-sm text-gray-600">Include the specific skills students should demonstrate (analyze, compare, evaluate, etc.) for better-targeted activities.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Timer className="h-4 w-4 mt-1 text-purple-500" />
+            <div>
+              <p className="font-medium text-gray-900">High Demand Notice</p>
+              <p className="text-sm text-gray-600">Due to high usage, you may experience brief delays or rate limits. Shorter, more focused standards process faster and are less likely to encounter issues.</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

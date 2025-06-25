@@ -1,8 +1,11 @@
-import { useState } from "react";
-import { LessonGenerator } from "./components/LessonGenerator";
-import { LessonResults } from "./components/LessonResults";
+import { useState, Suspense, lazy } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LoadingSpinner } from "./components/LoadingSpinner";
 import type { LessonIdea } from "~backend/lesson/generate";
+
+// Lazy load heavy components
+const LessonGenerator = lazy(() => import("./components/LessonGenerator").then(module => ({ default: module.LessonGenerator })));
+const LessonResults = lazy(() => import("./components/LessonResults").then(module => ({ default: module.LessonResults })));
 
 export default function App() {
   const [lessons, setLessons] = useState<LessonIdea[]>([]);
@@ -64,23 +67,25 @@ export default function App() {
           </header>
 
           <div className="max-w-7xl mx-auto">
-            {!showResults ? (
-              <LessonGenerator 
-                onLessonsGenerated={handleLessonsGenerated}
-                onLoadingChange={handleLoadingChange}
-                isLoading={isLoading}
-                loadingProgress={loadingProgress}
-                loadingMessage={loadingMessage}
-              />
-            ) : (
-              <LessonResults 
-                lessons={lessons} 
-                originalStandard={originalStandard}
-                cleanedStandard={cleanedStandard}
-                extractedTopics={extractedTopics}
-                onBackToSearch={handleBackToSearch}
-              />
-            )}
+            <Suspense fallback={<LoadingSpinner message="Loading application..." />}>
+              {!showResults ? (
+                <LessonGenerator 
+                  onLessonsGenerated={handleLessonsGenerated}
+                  onLoadingChange={handleLoadingChange}
+                  isLoading={isLoading}
+                  loadingProgress={loadingProgress}
+                  loadingMessage={loadingMessage}
+                />
+              ) : (
+                <LessonResults 
+                  lessons={lessons} 
+                  originalStandard={originalStandard}
+                  cleanedStandard={cleanedStandard}
+                  extractedTopics={extractedTopics}
+                  onBackToSearch={handleBackToSearch}
+                />
+              )}
+            </Suspense>
           </div>
         </div>
       </div>
