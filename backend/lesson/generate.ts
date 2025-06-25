@@ -73,6 +73,9 @@ function extractSearchTerms(text: string): string[] {
   // Extract key terms that would be useful for searching historical resources
   const terms = new Set<string>();
   
+  // First, filter out directive verbs and common educational language
+  const filteredText = filterDirectiveVerbs(text);
+  
   // College Board AP World History Modern Themes (from CED)
   const apThemes = [
     'interaction between humans and the environment', 'demography and disease', 'migration', 'patterns of settlement', 'technology',
@@ -102,12 +105,12 @@ function extractSearchTerms(text: string): string[] {
   ];
   
   timePatterns.forEach(pattern => {
-    const matches = text.match(pattern) || [];
+    const matches = filteredText.match(pattern) || [];
     matches.forEach(match => terms.add(match.toLowerCase()));
   });
   
-  // Extract capitalized proper nouns (likely historical entities)
-  const properNouns = text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
+  // Extract capitalized proper nouns (likely historical entities) from filtered text
+  const properNouns = filteredText.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
   properNouns.forEach(word => {
     if (word.length > 3 && !['The', 'This', 'That', 'These', 'Those', 'History', 'Student', 'Expected', 'Describe', 'Explain', 'Analyze', 'Compare', 'Contrast', 'Evaluate', 'Understand', 'Major', 'Political', 'Religious', 'Cultural', 'Influence', 'Contribution', 'Civilization', 'Society', 'Period', 'Time', 'World', 'Global', 'Ancient', 'Classical', 'Modern', 'Historical'].includes(word)) {
       terms.add(word);
@@ -128,36 +131,150 @@ function extractSearchTerms(text: string): string[] {
     'patterns of settlement', 'demography', 'disease', 'regional', 'transregional', 'global'
   ];
   
-  // Check for College Board themes in the text
+  // Check for College Board themes in the filtered text
   apThemes.forEach(theme => {
-    if (text.toLowerCase().includes(theme.toLowerCase())) {
+    if (filteredText.toLowerCase().includes(theme.toLowerCase())) {
       terms.add(theme);
     }
   });
   
   // Check for historical thinking skills
   historicalSkills.forEach(skill => {
-    if (text.toLowerCase().includes(skill.toLowerCase())) {
+    if (filteredText.toLowerCase().includes(skill.toLowerCase())) {
       terms.add(skill);
     }
   });
   
   // Check for course units
   courseUnits.forEach(unit => {
-    if (text.toLowerCase().includes(unit.toLowerCase())) {
+    if (filteredText.toLowerCase().includes(unit.toLowerCase())) {
       terms.add(unit);
     }
   });
   
-  // Check for general concepts
+  // Check for general concepts in filtered text
   concepts.forEach(concept => {
-    if (text.toLowerCase().includes(concept)) {
+    if (filteredText.toLowerCase().includes(concept)) {
       terms.add(concept);
     }
   });
   
+  // Extract important adjectives and nouns from filtered text
+  const importantTerms = extractImportantTerms(filteredText);
+  importantTerms.forEach(term => terms.add(term));
+  
   // Limit to the most relevant terms for search
-  return Array.from(terms).slice(0, 15); // Increased limit to accommodate College Board concepts
+  return Array.from(terms).slice(0, 15);
+}
+
+function filterDirectiveVerbs(text: string): string {
+  // Common directive verbs and educational language to filter out
+  const directiveVerbs = [
+    // Basic instruction verbs
+    'provide', 'create', 'develop', 'design', 'make', 'build', 'generate', 'produce',
+    'write', 'compose', 'draft', 'prepare', 'plan', 'organize', 'structure',
+    
+    // Analysis verbs
+    'analyze', 'examine', 'study', 'investigate', 'explore', 'research', 'review',
+    'assess', 'evaluate', 'critique', 'judge', 'appraise', 'consider',
+    
+    // Description verbs
+    'describe', 'explain', 'discuss', 'detail', 'outline', 'summarize', 'present',
+    'show', 'demonstrate', 'illustrate', 'display', 'exhibit', 'reveal',
+    
+    // Comparison verbs
+    'compare', 'contrast', 'differentiate', 'distinguish', 'relate', 'connect',
+    
+    // Educational context words
+    'lesson', 'unit', 'curriculum', 'instruction', 'teaching', 'learning',
+    'student', 'students', 'class', 'grade', 'level', 'activity', 'assignment',
+    
+    // Common sentence starters
+    'help', 'assist', 'support', 'guide', 'teach', 'educate', 'inform',
+    'understand', 'comprehend', 'grasp', 'learn', 'know', 'realize',
+    
+    // Modal and auxiliary verbs
+    'should', 'would', 'could', 'might', 'may', 'will', 'shall', 'must',
+    'can', 'need', 'want', 'wish', 'hope', 'expect', 'require',
+    
+    // Common prepositions that start educational requests
+    'about', 'regarding', 'concerning', 'for', 'on', 'with', 'using'
+  ];
+  
+  // Split text into words, preserving punctuation context
+  const words = text.split(/\s+/);
+  const filteredWords: string[] = [];
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const cleanWord = word.toLowerCase().replace(/[^\w]/g, '');
+    
+    // Skip directive verbs, but be more lenient after the first few words
+    const isDirectiveVerb = directiveVerbs.includes(cleanWord);
+    const isEarlyInText = i < 5; // Only aggressively filter in first 5 words
+    
+    if (isDirectiveVerb && isEarlyInText) {
+      continue; // Skip this word
+    }
+    
+    // Keep the word if it's not a directive verb or if we're past the early filtering zone
+    if (!isDirectiveVerb || !isEarlyInText) {
+      filteredWords.push(word);
+    }
+  }
+  
+  return filteredWords.join(' ');
+}
+
+function extractImportantTerms(text: string): string[] {
+  const terms = new Set<string>();
+  
+  // Extract multi-word phrases that are likely to be important
+  // Look for patterns like "Ancient Rome", "World War", "Industrial Revolution"
+  const phrasePatterns = [
+    // Historical periods with adjectives
+    /\b(ancient|classical|medieval|early|late|modern|contemporary)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/gi,
+    // Geographic entities
+    /\b([A-Z][a-z]+)\s+(Empire|Kingdom|Republic|Dynasty|Civilization|Culture|Society)\b/gi,
+    // Historical events
+    /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(War|Revolution|Period|Era|Age|Movement)\b/gi,
+    // Cultural/religious terms
+    /\b([A-Z][a-z]+)\s+(Religion|Philosophy|Art|Architecture|Literature|Science)\b/gi
+  ];
+  
+  phrasePatterns.forEach(pattern => {
+    const matches = text.match(pattern) || [];
+    matches.forEach(match => {
+      // Clean up the match and add individual important words
+      const cleanMatch = match.replace(/[^\w\s]/g, '').trim();
+      const words = cleanMatch.split(/\s+/);
+      words.forEach(word => {
+        if (word.length > 3 && /^[A-Z]/.test(word)) {
+          terms.add(word);
+        }
+      });
+    });
+  });
+  
+  // Extract standalone important words (nouns, adjectives, proper nouns)
+  const words = text.split(/\s+/);
+  words.forEach(word => {
+    const cleanWord = word.replace(/[^\w]/g, '');
+    
+    // Include words that are:
+    // 1. Capitalized (likely proper nouns)
+    // 2. Historical time periods
+    // 3. Important descriptive words
+    if (cleanWord.length > 3) {
+      if (/^[A-Z]/.test(cleanWord)) {
+        terms.add(cleanWord);
+      } else if (/^(culture|society|politics|economics|religion|art|science|technology|military|social|political|economic|religious|cultural)$/i.test(cleanWord)) {
+        terms.add(cleanWord.toLowerCase());
+      }
+    }
+  });
+  
+  return Array.from(terms);
 }
 
 function createContextualActivities(searchContext: string): string[] {
