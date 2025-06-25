@@ -110,7 +110,7 @@ export function LessonGenerator({
     if (err.message?.includes("rate limit") || 
         err.message?.includes("Too Many Requests") ||
         err.message?.includes("resource_exhausted")) {
-      const retryAfter = err.details?.retryAfter || 180; // Default to 3 minutes
+      const retryAfter = err.details?.retryAfter || 300; // Default to 5 minutes
       return {
         message: "The AI service is currently experiencing high demand. Please wait a few minutes before trying again.",
         type: 'rate-limit',
@@ -193,7 +193,7 @@ export function LessonGenerator({
       } else {
         clearInterval(interval);
       }
-    }, 800);
+    }, 1200); // Slower progress to account for potential delays
 
     return interval;
   };
@@ -368,7 +368,7 @@ export function LessonGenerator({
                       Generation complete!
                     </span>
                   ) : (
-                    `${loadingProgress}% complete - This usually takes 10-30 seconds`
+                    `${loadingProgress}% complete - This usually takes 30-60 seconds`
                   )}
                 </div>
               </div>
@@ -428,7 +428,7 @@ export function LessonGenerator({
               <Timer className="h-4 w-4 mt-1 text-purple-500" />
               <div>
                 <p className="font-medium text-gray-900">High Demand Notice</p>
-                <p className="text-sm text-gray-600">Due to high usage, you may experience brief delays. Shorter, more focused standards process faster and are less likely to encounter rate limits.</p>
+                <p className="text-sm text-gray-600">Due to high usage, you may experience brief delays or rate limits. Shorter, more focused standards process faster and are less likely to encounter issues.</p>
               </div>
             </div>
           </div>

@@ -54,7 +54,7 @@ export default function App() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="container mx-auto px-4 py-8">
           <header className="text-center mb-12">
-            <h1 className="text-4xl font-bella font-normal text-gray-900 mb-4 tracking-wide">
+            <h1 className="text-4xl font-bree-serif font-normal text-gray-900 mb-4 tracking-wide">
               History Lesson Generator
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">

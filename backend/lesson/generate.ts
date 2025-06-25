@@ -742,7 +742,7 @@ function handleOpenAIError(error: any, response?: Response): never {
       case 403:
         throw APIError.permissionDenied("Access to AI service denied. Please contact support.");
       case 429:
-        throw APIError.resourceExhausted("AI service rate limit exceeded. Please try again in a few minutes.", { retryAfter: 180 });
+        throw APIError.resourceExhausted("AI service rate limit exceeded. Please try again in a few minutes.", { retryAfter: 300 });
       case 500:
       case 502:
       case 503:
@@ -769,7 +769,7 @@ function handleOpenAIError(error: any, response?: Response): never {
 
 async function makeOpenAIRequest(apiKey: string, prompt: string, contextualActivities: string[], suggestedActivities: SuggestedActivity[], gradeLevel: string, gradeRange: string): Promise<any> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000); // Increased to 90 seconds
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // Increased to 2 minutes
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -888,7 +888,7 @@ Return ONLY valid JSON following this exact structure:
           }
         ],
         temperature: 0.6,
-        max_tokens: 3000 // Reduced token count to help with rate limiting
+        max_tokens: 2500 // Reduced token count to help with rate limiting
       })
     });
 
