@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Info, Lightbulb, AlertCircle, Wifi, Clock, Zap, CheckCircle2 } from "lucide-react";
+import { BookOpen, Info, Lightbulb, AlertCircle, Wifi, Clock, Zap, CheckCircle2, Timer } from "lucide-react";
 import backend from "~backend/client";
 import type { LessonIdea } from "~backend/lesson/generate";
 
@@ -21,6 +21,7 @@ interface ErrorState {
   type: 'validation' | 'network' | 'api' | 'timeout' | 'rate-limit' | 'server' | 'unknown';
   retryable: boolean;
   suggestedAction?: string;
+  retryAfter?: number;
 }
 
 export function LessonGenerator({ 
@@ -33,6 +34,7 @@ export function LessonGenerator({
   const [standard, setStandard] = useState("");
   const [error, setError] = useState<ErrorState | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [retryCountdown, setRetryCountdown] = useState(0);
 
   const getErrorIcon = (type: string) => {
     switch (type) {
@@ -41,7 +43,7 @@ export function LessonGenerator({
       case 'timeout':
         return <Clock className="h-4 w-4" />;
       case 'rate-limit':
-        return <Zap className="h-4 w-4" />;
+        return <Timer className="h-4 w-4" />;
       default:
         return <AlertCircle className="h-4 w-4" />;
     }
@@ -104,14 +106,17 @@ export function LessonGenerator({
       };
     }
 
-    // Handle rate limiting
+    // Handle rate limiting with enhanced messaging
     if (err.message?.includes("rate limit") || 
-        err.message?.includes("Too Many Requests")) {
+        err.message?.includes("Too Many Requests") ||
+        err.message?.includes("resource_exhausted")) {
+      const retryAfter = err.details?.retryAfter || 180; // Default to 3 minutes
       return {
-        message: "Too many requests. Please wait a few minutes before trying again.",
+        message: "The AI service is currently experiencing high demand. Please wait a few minutes before trying again.",
         type: 'rate-limit',
         retryable: true,
-        suggestedAction: "Wait 2-3 minutes before trying again."
+        retryAfter: retryAfter,
+        suggestedAction: `Wait ${Math.ceil(retryAfter / 60)} minutes before trying again. You can also try shortening your teaching standard to reduce processing time.`
       };
     }
 
@@ -193,6 +198,19 @@ export function LessonGenerator({
     return interval;
   };
 
+  const startRetryCountdown = (seconds: number) => {
+    setRetryCountdown(seconds);
+    const interval = setInterval(() => {
+      setRetryCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -206,6 +224,7 @@ export function LessonGenerator({
     }
 
     setError(null);
+    setRetryCountdown(0);
     onLoadingChange(true, 0, "Starting lesson generation...");
     
     const progressInterval = simulateProgress();
@@ -245,6 +264,11 @@ export function LessonGenerator({
       
       if (errorState.retryable) {
         setRetryCount(prev => prev + 1);
+        
+        // Start countdown for rate limit errors
+        if (errorState.type === 'rate-limit' && errorState.retryAfter) {
+          startRetryCountdown(errorState.retryAfter);
+        }
       }
     }
   };
@@ -252,6 +276,12 @@ export function LessonGenerator({
   const handleRetry = () => {
     setError(null);
     handleSubmit(new Event('submit') as any);
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -302,8 +332,14 @@ export function LessonGenerator({
                         Attempt {retryCount + 1} - If this continues, try a shorter standard or contact support.
                       </AlertDescription>
                     )}
+                    {retryCountdown > 0 && (
+                      <AlertDescription className="text-sm opacity-90 mt-2 flex items-center gap-1">
+                        <Timer className="h-3 w-3" />
+                        Please wait {formatTime(retryCountdown)} before retrying
+                      </AlertDescription>
+                    )}
                   </div>
-                  {error.retryable && (
+                  {error.retryable && retryCountdown === 0 && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -342,9 +378,9 @@ export function LessonGenerator({
               type="submit" 
               className="w-full" 
               size="lg" 
-              disabled={isLoading || !standard.trim()}
+              disabled={isLoading || !standard.trim() || retryCountdown > 0}
             >
-              {isLoading ? "Generating..." : "Generate Lesson Ideas"}
+              {isLoading ? "Generating..." : retryCountdown > 0 ? `Wait ${formatTime(retryCountdown)}` : "Generate Lesson Ideas"}
             </Button>
           </form>
         </CardContent>
@@ -386,6 +422,13 @@ export function LessonGenerator({
               <div>
                 <p className="font-medium text-gray-900">Focus on Learning Objectives</p>
                 <p className="text-sm text-gray-600">Include the specific skills students should demonstrate (analyze, compare, evaluate, etc.) for better-targeted activities.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Timer className="h-4 w-4 mt-1 text-purple-500" />
+              <div>
+                <p className="font-medium text-gray-900">High Demand Notice</p>
+                <p className="text-sm text-gray-600">Due to high usage, you may experience brief delays. Shorter, more focused standards process faster and are less likely to encounter rate limits.</p>
               </div>
             </div>
           </div>

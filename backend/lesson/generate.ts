@@ -742,7 +742,7 @@ function handleOpenAIError(error: any, response?: Response): never {
       case 403:
         throw APIError.permissionDenied("Access to AI service denied. Please contact support.");
       case 429:
-        throw APIError.resourceExhausted("AI service rate limit exceeded. Please try again in a few minutes.");
+        throw APIError.resourceExhausted("AI service rate limit exceeded. Please try again in a few minutes.", { retryAfter: 180 });
       case 500:
       case 502:
       case 503:
@@ -769,7 +769,7 @@ function handleOpenAIError(error: any, response?: Response): never {
 
 async function makeOpenAIRequest(apiKey: string, prompt: string, contextualActivities: string[], suggestedActivities: SuggestedActivity[], gradeLevel: string, gradeRange: string): Promise<any> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // Increased to 90 seconds
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -780,7 +780,7 @@ async function makeOpenAIRequest(apiKey: string, prompt: string, contextualActiv
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini", // Use the more cost-effective model to reduce rate limiting
         messages: [
           {
             role: "system",
@@ -810,7 +810,7 @@ ${gradeLevel === "6-8" ? "- Use age-appropriate vocabulary with some academic te
 ${gradeLevel === "9-12" || gradeLevel === "College" ? "- Use sophisticated vocabulary and complex concepts\n- Focus on critical thinking and analysis\n- Include research and writing components\n- Prepare for standardized assessments" : ""}
 
 KEY REQUIREMENTS:
-1. Create 3-4 distinct lesson ideas that build upon each other in complexity
+1. Create 2-3 distinct lesson ideas that build upon each other in complexity
 2. Each activity must reference SPECIFIC historical documents, texts, artifacts, or sources
 3. Focus on the exact topics extracted from the standard
 4. Include real primary sources with actual excerpts when possible
@@ -888,7 +888,7 @@ Return ONLY valid JSON following this exact structure:
           }
         ],
         temperature: 0.6,
-        max_tokens: 4000
+        max_tokens: 3000 // Reduced token count to help with rate limiting
       })
     });
 
@@ -942,7 +942,7 @@ export const generate = api<GenerateLessonRequest, GenerateLessonResponse>(
 
     const apiKey = openAIKey();
     if (!apiKey) {
-      log.error("OpenAI API key not configured");
+      log.info("OpenAI API key not configured, returning fallback lessons");
       // Return fallback lessons with cleaned standard and topics
       return { 
         lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
