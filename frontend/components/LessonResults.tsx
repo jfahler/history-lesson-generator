@@ -2,9 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Clock, Users, Target, ExternalLink, FileText, Image, Video, Map, Volume2, MapPin, Globe, Hash, Sparkles, BookOpen, Activity, Award, Download } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowLeft, Clock, Users, Target, ExternalLink, FileText, Image, Video, Map, Volume2, MapPin, Globe, Hash, Sparkles, BookOpen, Activity, Award, Download, Info, Gamepad2, Brain, Puzzle, Search, Zap, Eye, Users2, Pen, MessageSquare, Star } from "lucide-react";
 import { useState } from "react";
-import type { LessonIdea } from "~backend/lesson/generate";
+import type { LessonIdea, SuggestedActivity } from "~backend/lesson/generate";
 
 interface LessonResultsProps {
   lessons: LessonIdea[];
@@ -36,12 +37,44 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
     }
   };
 
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "timeline": return <Clock className="h-4 w-4" />;
+      case "mindmap": return <Brain className="h-4 w-4" />;
+      case "crossword": return <Puzzle className="h-4 w-4" />;
+      case "wordsearch": return <Search className="h-4 w-4" />;
+      case "flashcards": return <Zap className="h-4 w-4" />;
+      case "bingo": return <Gamepad2 className="h-4 w-4" />;
+      case "webquest": return <Globe className="h-4 w-4" />;
+      case "comparison": return <Eye className="h-4 w-4" />;
+      case "videoquiz": return <Video className="h-4 w-4" />;
+      case "worksheet": return <FileText className="h-4 w-4" />;
+      case "spinner": return <Gamepad2 className="h-4 w-4" />;
+      case "memory": return <Brain className="h-4 w-4" />;
+      case "jigsaw": return <Puzzle className="h-4 w-4" />;
+      case "quiz": return <Target className="h-4 w-4" />;
+      case "research": return <Search className="h-4 w-4" />;
+      case "comic": return <Image className="h-4 w-4" />;
+      case "discussion": return <MessageSquare className="h-4 w-4" />;
+      case "cardgame": return <Gamepad2 className="h-4 w-4" />;
+      case "roleplay": return <Users2 className="h-4 w-4" />;
+      case "scavenger": return <Search className="h-4 w-4" />;
+      case "cartoon": return <Image className="h-4 w-4" />;
+      case "writing": return <Pen className="h-4 w-4" />;
+      case "vocabulary": return <BookOpen className="h-4 w-4" />;
+      default: return <Star className="h-4 w-4" />;
+    }
+  };
+
   // Create search queries using the search context (extracted topics joined)
   const createSearchQuery = (topics: string[], maxLength: number = 100) => {
     return topics.join(' ').substring(0, maxLength);
   };
 
   const searchQuery = createSearchQuery(extractedTopics);
+
+  // Get detected grade level from first lesson
+  const detectedGradeLevel = lessons.length > 0 ? lessons[0].detectedGradeRange : "High School (9-12)";
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -53,7 +86,7 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
             Teaching Standard Analysis
           </CardTitle>
           <CardDescription>
-            Your standard has been processed and enhanced with targeted resources
+            Your standard has been processed and enhanced with targeted resources for {detectedGradeLevel}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -61,6 +94,19 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
             <h4 className="font-semibold text-gray-900 mb-2">Cleaned Standard</h4>
             <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-lg border border-blue-200">
               {cleanedStandard}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Detected Grade Level
+            </h4>
+            <Badge variant="secondary" className="text-sm">
+              {detectedGradeLevel}
+            </Badge>
+            <p className="text-sm text-gray-600 mt-2">
+              All activities and assessments have been tailored for this grade level.
             </p>
           </div>
 
@@ -133,7 +179,7 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
             Lesson Ideas Preview
           </CardTitle>
           <CardDescription>
-            Click on "Lesson Plans" to see detailed lesson plans
+            Click on "Lesson Plans" to see detailed lesson plans with suggested activities
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,8 +195,14 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
                   </Badge>
                   <Badge variant="outline" className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
-                    Grade {lesson.gradeLevel}
+                    {lesson.detectedGradeRange}
                   </Badge>
+                  {lesson.suggestedActivities && lesson.suggestedActivities.length > 0 && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Gamepad2 className="h-3 w-3" />
+                      {lesson.suggestedActivities.length} Smart Activities
+                    </Badge>
+                  )}
                 </div>
               </div>
             ))}
@@ -174,7 +226,7 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
               </Badge>
               <Badge variant="outline" className="flex items-center gap-1">
                 <Users className="h-3 w-3" />
-                Grade {lesson.gradeLevel}
+                {lesson.detectedGradeRange}
               </Badge>
             </div>
           </CardHeader>
@@ -195,6 +247,37 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
                 ))}
               </ul>
             </div>
+
+            {/* Suggested Activities */}
+            {lesson.suggestedActivities && lesson.suggestedActivities.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Gamepad2 className="h-4 w-4" />
+                  Smart Activity Suggestions
+                </h4>
+                <TooltipProvider>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {lesson.suggestedActivities.map((activity, idx) => (
+                      <Tooltip key={idx}>
+                        <TooltipTrigger asChild>
+                          <div className="border rounded-lg p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:shadow-md transition-shadow cursor-help">
+                            <div className="flex items-center gap-2 mb-2">
+                              {getActivityIcon(activity.type)}
+                              <h5 className="font-medium text-gray-900">{activity.name}</h5>
+                              <Info className="h-3 w-3 text-gray-400" />
+                            </div>
+                            <p className="text-sm text-gray-600">{activity.description}</p>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-sm"><strong>Pedagogical Benefit:</strong> {activity.pedagogicalBenefit}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
+              </div>
+            )}
 
             {/* Activities */}
             <div>
@@ -268,7 +351,7 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
         <CardHeader>
           <CardTitle>Academic Resources & Primary Sources</CardTitle>
           <CardDescription>
-            Targeted searches for: {extractedTopics.slice(0, 3).join(', ')}
+            Targeted searches for: {extractedTopics.slice(0, 3).join(', ')} ({detectedGradeLevel})
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -380,7 +463,7 @@ export function LessonResults({ lessons, originalStandard, cleanedStandard, extr
         <CardHeader>
           <CardTitle>Multimedia Resources</CardTitle>
           <CardDescription>
-            Educational videos and interactive content for: {extractedTopics.slice(0, 3).join(', ')}
+            Educational videos and interactive content for: {extractedTopics.slice(0, 3).join(', ')} ({detectedGradeLevel})
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -30,14 +30,24 @@ export interface MultimediaResource {
   description: string;
 }
 
+export interface SuggestedActivity {
+  name: string;
+  type: "timeline" | "mindmap" | "crossword" | "wordsearch" | "flashcards" | "bingo" | "webquest" | "comparison" | "videoquiz" | "worksheet" | "spinner" | "memory" | "jigsaw" | "quiz" | "research" | "comic" | "discussion" | "cardgame" | "roleplay" | "scavenger" | "cartoon" | "writing" | "vocabulary";
+  description: string;
+  pedagogicalBenefit: string;
+  ageAppropriate: boolean;
+}
+
 export interface LessonIdea {
   title: string;
   description: string;
   objectives: string[];
   activities: string[];
+  suggestedActivities: SuggestedActivity[];
   assessmentIdeas: string[];
   timeEstimate: string;
   gradeLevel: string;
+  detectedGradeRange: string;
   resources: Resource[];
   primarySources: PrimarySource[];
   multimedia: MultimediaResource[];
@@ -47,6 +57,197 @@ export interface GenerateLessonResponse {
   lessons: LessonIdea[];
   cleanedStandard: string;
   extractedTopics: string[];
+  detectedGradeLevel: string;
+}
+
+function detectGradeLevel(standard: string): { gradeLevel: string; gradeRange: string } {
+  const text = standard.toLowerCase();
+  
+  // Elementary patterns
+  if (text.match(/\b(?:kindergarten|k-?2|k-?3|elementary|primary|grade\s*[1-5]|[1-5]th\s*grade)\b/)) {
+    return { gradeLevel: "K-5", gradeRange: "Elementary (K-5)" };
+  }
+  
+  // Middle school patterns
+  if (text.match(/\b(?:middle\s*school|grade\s*[6-8]|[6-8]th\s*grade|junior\s*high)\b/)) {
+    return { gradeLevel: "6-8", gradeRange: "Middle School (6-8)" };
+  }
+  
+  // High school patterns
+  if (text.match(/\b(?:high\s*school|grade\s*(?:9|10|11|12)|(?:9|10|11|12)th\s*grade|freshman|sophomore|junior|senior)\b/)) {
+    return { gradeLevel: "9-12", gradeRange: "High School (9-12)" };
+  }
+  
+  // AP patterns
+  if (text.match(/\b(?:ap\s*world|advanced\s*placement|college\s*board)\b/)) {
+    return { gradeLevel: "9-12", gradeRange: "AP/Advanced (9-12)" };
+  }
+  
+  // College patterns
+  if (text.match(/\b(?:college|university|undergraduate|freshman|sophomore|junior|senior)\b/)) {
+    return { gradeLevel: "College", gradeRange: "College/University" };
+  }
+  
+  // Default to high school if no specific grade detected
+  return { gradeLevel: "9-12", gradeRange: "High School (9-12)" };
+}
+
+function generateSuggestedActivities(searchContext: string, gradeLevel: string): SuggestedActivity[] {
+  const isElementary = gradeLevel === "K-5";
+  const isMiddle = gradeLevel === "6-8";
+  const isHigh = gradeLevel === "9-12" || gradeLevel === "College";
+  
+  const allActivities: SuggestedActivity[] = [
+    {
+      name: "Interactive Timeline",
+      type: "timeline",
+      description: `Create a visual timeline of key events related to ${searchContext}`,
+      pedagogicalBenefit: "Helps students understand chronological thinking and cause-and-effect relationships",
+      ageAppropriate: true
+    },
+    {
+      name: "Concept Mind Map",
+      type: "mindmap",
+      description: `Build a mind map connecting themes and concepts in ${searchContext}`,
+      pedagogicalBenefit: "Develops critical thinking and helps visualize complex relationships between ideas",
+      ageAppropriate: !isElementary
+    },
+    {
+      name: "Historical Crossword",
+      type: "crossword",
+      description: `Vocabulary crossword puzzle featuring key terms from ${searchContext}`,
+      pedagogicalBenefit: "Reinforces vocabulary retention and makes learning engaging through gamification",
+      ageAppropriate: true
+    },
+    {
+      name: "Word Search Adventure",
+      type: "wordsearch",
+      description: `Find hidden words related to ${searchContext} in a themed word search`,
+      pedagogicalBenefit: "Builds familiarity with historical vocabulary in a low-pressure, engaging format",
+      ageAppropriate: isElementary || isMiddle
+    },
+    {
+      name: "Digital Flashcards",
+      type: "flashcards",
+      description: `Interactive flashcards for key people, places, and events in ${searchContext}`,
+      pedagogicalBenefit: "Supports spaced repetition learning and helps with memorization of important facts",
+      ageAppropriate: true
+    },
+    {
+      name: "History Bingo",
+      type: "bingo",
+      description: `Bingo game featuring facts and figures from ${searchContext}`,
+      pedagogicalBenefit: "Makes review fun and encourages active listening during lessons",
+      ageAppropriate: isElementary || isMiddle
+    },
+    {
+      name: "WebQuest Investigation",
+      type: "webquest",
+      description: `Guided online research project exploring ${searchContext}`,
+      pedagogicalBenefit: "Develops digital literacy and research skills while maintaining focus on learning objectives",
+      ageAppropriate: !isElementary
+    },
+    {
+      name: "Before/After Comparison",
+      type: "comparison",
+      description: `Visual comparison of conditions before and after events in ${searchContext}`,
+      pedagogicalBenefit: "Develops analytical thinking and helps students understand historical change over time",
+      ageAppropriate: true
+    },
+    {
+      name: "Video Analysis Quiz",
+      type: "videoquiz",
+      description: `Interactive quiz based on documentary clips about ${searchContext}`,
+      pedagogicalBenefit: "Combines visual learning with assessment and keeps students engaged with multimedia",
+      ageAppropriate: true
+    },
+    {
+      name: "Historical Role Play",
+      type: "roleplay",
+      description: `Students assume roles of historical figures from ${searchContext}`,
+      pedagogicalBenefit: "Develops empathy and deeper understanding of multiple perspectives in history",
+      ageAppropriate: true
+    },
+    {
+      name: "Primary Source Scavenger Hunt",
+      type: "scavenger",
+      description: `Hunt for specific information in primary sources related to ${searchContext}`,
+      pedagogicalBenefit: "Builds document analysis skills and makes primary source work more engaging",
+      ageAppropriate: !isElementary
+    },
+    {
+      name: "Political Cartoon Analysis",
+      type: "cartoon",
+      description: `Analyze political cartoons from the era of ${searchContext}`,
+      pedagogicalBenefit: "Develops visual literacy and understanding of historical perspectives and bias",
+      ageAppropriate: isHigh
+    },
+    {
+      name: "Historical Writing Prompts",
+      type: "writing",
+      description: `Creative writing exercises from perspectives within ${searchContext}`,
+      pedagogicalBenefit: "Develops writing skills while deepening understanding of historical experiences",
+      ageAppropriate: !isElementary
+    },
+    {
+      name: "Vocabulary Builder",
+      type: "vocabulary",
+      description: `Interactive vocabulary activities for key terms in ${searchContext}`,
+      pedagogicalBenefit: "Builds academic vocabulary essential for understanding historical concepts",
+      ageAppropriate: true
+    },
+    {
+      name: "Historical Memory Game",
+      type: "memory",
+      description: `Match historical figures, events, and dates related to ${searchContext}`,
+      pedagogicalBenefit: "Strengthens memory through repetition and makes learning facts more enjoyable",
+      ageAppropriate: isElementary || isMiddle
+    },
+    {
+      name: "Research Project",
+      type: "research",
+      description: `In-depth research project on specific aspects of ${searchContext}`,
+      pedagogicalBenefit: "Develops research skills, critical thinking, and allows for deeper exploration of topics",
+      ageAppropriate: !isElementary
+    },
+    {
+      name: "Comic Strip Creation",
+      type: "comic",
+      description: `Create comic strips depicting key events from ${searchContext}`,
+      pedagogicalBenefit: "Combines creativity with historical understanding and appeals to visual learners",
+      ageAppropriate: isElementary || isMiddle
+    },
+    {
+      name: "Group Discussion Circles",
+      type: "discussion",
+      description: `Structured discussions about themes and issues in ${searchContext}`,
+      pedagogicalBenefit: "Develops communication skills and allows students to explore different viewpoints",
+      ageAppropriate: !isElementary
+    }
+  ];
+  
+  // Filter activities based on age appropriateness and select 4-5 relevant ones
+  const appropriateActivities = allActivities.filter(activity => activity.ageAppropriate);
+  
+  // Prioritize certain activities based on grade level
+  let prioritizedActivities: SuggestedActivity[] = [];
+  
+  if (isElementary) {
+    prioritizedActivities = appropriateActivities.filter(a => 
+      ['timeline', 'crossword', 'wordsearch', 'flashcards', 'bingo', 'comparison', 'roleplay', 'memory', 'comic', 'vocabulary'].includes(a.type)
+    );
+  } else if (isMiddle) {
+    prioritizedActivities = appropriateActivities.filter(a => 
+      ['timeline', 'mindmap', 'crossword', 'flashcards', 'webquest', 'comparison', 'videoquiz', 'roleplay', 'scavenger', 'writing', 'research', 'discussion'].includes(a.type)
+    );
+  } else {
+    prioritizedActivities = appropriateActivities.filter(a => 
+      ['timeline', 'mindmap', 'webquest', 'comparison', 'videoquiz', 'roleplay', 'scavenger', 'cartoon', 'writing', 'research', 'discussion'].includes(a.type)
+    );
+  }
+  
+  // Return 4-5 activities, ensuring variety
+  return prioritizedActivities.slice(0, 5);
 }
 
 function cleanStandard(standard: string): { cleaned: string; searchContext: string } {
@@ -292,8 +493,10 @@ function createContextualActivities(searchContext: string): string[] {
   return activities;
 }
 
-function createFallbackLessons(standard: string, searchContext: string): LessonIdea[] {
+function createFallbackLessons(standard: string, searchContext: string, detectedGradeLevel: string): LessonIdea[] {
   const contextualActivities = createContextualActivities(searchContext);
+  const suggestedActivities = generateSuggestedActivities(searchContext, detectedGradeLevel);
+  const { gradeRange } = detectGradeLevel(standard);
   
   // Create more specific fallback lessons based on search context, aligned with College Board standards
   const baseLesson: LessonIdea = {
@@ -310,6 +513,7 @@ function createFallbackLessons(standard: string, searchContext: string): LessonI
       "Interactive timeline creation showing key events and developments related to the topic, emphasizing causation and periodization",
       "Socratic seminar discussion on the lasting influence and historical significance, requiring evidence-based argumentation"
     ],
+    suggestedActivities: suggestedActivities,
     assessmentIdeas: [
       "Document-based question (DBQ) essay analyzing primary sources related to the topic using College Board rubric criteria",
       "Comparative chart assessment evaluating different aspects and perspectives with evidence-based analysis",
@@ -317,7 +521,8 @@ function createFallbackLessons(standard: string, searchContext: string): LessonI
       "Participation rubric for class discussions and collaborative activities emphasizing historical argumentation"
     ],
     timeEstimate: "3-4 class periods",
-    gradeLevel: "9-12",
+    gradeLevel: detectedGradeLevel,
+    detectedGradeRange: gradeRange,
     resources: [
       {
         title: "College Board AP World History Resources",
@@ -378,6 +583,7 @@ function createFallbackLessons(standard: string, searchContext: string): LessonI
       "Role-playing simulation representing different historical perspectives and stakeholders",
       "Evidence-based debate on the significance and impact of the historical topic requiring historical argumentation"
     ],
+    suggestedActivities: suggestedActivities,
     assessmentIdeas: [
       "Comparative essay analyzing the topic in broader historical context using College Board rubric criteria",
       "Primary source analysis worksheet with comparative questions and contextualization",
@@ -385,7 +591,8 @@ function createFallbackLessons(standard: string, searchContext: string): LessonI
       "Debate performance assessment focusing on use of historical evidence and causation analysis"
     ],
     timeEstimate: "4-5 class periods",
-    gradeLevel: "10-12",
+    gradeLevel: detectedGradeLevel,
+    detectedGradeRange: gradeRange,
     resources: [
       {
         title: "Stanford History Education Group",
@@ -434,6 +641,7 @@ function createFallbackLessons(standard: string, searchContext: string): LessonI
       "Contemporary relevance discussion connecting historical themes to current events using evidence",
       "Historical influence presentation analyzing specific examples of lasting impact with argumentation"
     ],
+    suggestedActivities: suggestedActivities,
     assessmentIdeas: [
       "Legacy analysis project tracing historical influence to the present using College Board themes",
       "Contemporary relevance essay connecting historical themes to modern issues with evidence-based argumentation",
@@ -441,7 +649,8 @@ function createFallbackLessons(standard: string, searchContext: string): LessonI
       "Reflection paper on the value of historical knowledge for understanding the present using historical thinking skills"
     ],
     timeEstimate: "3-4 class periods",
-    gradeLevel: "9-11",
+    gradeLevel: detectedGradeLevel,
+    detectedGradeRange: gradeRange,
     resources: [
       {
         title: "College Board Historical Thinking Skills",
@@ -490,17 +699,21 @@ export const generate = api<GenerateLessonRequest, GenerateLessonResponse>(
 
     // Clean the standard and extract topics
     const { cleaned, searchContext } = cleanStandard(req.standard);
+    const { gradeLevel, gradeRange } = detectGradeLevel(req.standard);
+    
     log.info("Cleaned standard:", cleaned);
     log.info("Extracted topics:", searchContext);
+    log.info("Detected grade level:", gradeLevel, gradeRange);
 
     const apiKey = openAIKey();
     if (!apiKey) {
       log.error("OpenAI API key not configured");
       // Return fallback lessons with cleaned standard and topics
       return { 
-        lessons: createFallbackLessons(cleaned, searchContext),
+        lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
         cleanedStandard: cleaned,
-        extractedTopics: searchContext.split(' ')
+        extractedTopics: searchContext.split(' '),
+        detectedGradeLevel: gradeRange
       };
     }
 
@@ -508,6 +721,7 @@ export const generate = api<GenerateLessonRequest, GenerateLessonResponse>(
       log.info("Making request to OpenAI API");
       
       const contextualActivities = createContextualActivities(searchContext);
+      const suggestedActivities = generateSuggestedActivities(searchContext, gradeLevel);
       
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -521,6 +735,9 @@ export const generate = api<GenerateLessonRequest, GenerateLessonResponse>(
             {
               role: "system",
               content: `You are an expert history teacher and curriculum designer with deep knowledge of world history, primary sources, and educational best practices. Your task is to create highly specific, engaging lesson ideas that directly address the provided teaching standard, aligned with College Board AP World History Modern standards.
+
+DETECTED GRADE LEVEL: ${gradeLevel} (${gradeRange})
+IMPORTANT: Adjust all content, vocabulary, activities, and assessments to be appropriate for ${gradeRange} students.
 
 COLLEGE BOARD AP WORLD HISTORY THEMES TO INCORPORATE:
 1. Interaction Between Humans and the Environment (demography, disease, migration, patterns of settlement, technology)
@@ -537,26 +754,33 @@ HISTORICAL THINKING SKILLS TO EMPHASIZE:
 - Continuity and Change Over Time: Analyze patterns of continuity and change
 - Periodization: Organize historical events into meaningful periods
 
+GRADE-APPROPRIATE CONSIDERATIONS FOR ${gradeRange}:
+${gradeLevel === "K-5" ? "- Use simple vocabulary and concrete examples\n- Focus on stories and visual materials\n- Include hands-on activities and games\n- Keep activities short and engaging" : ""}
+${gradeLevel === "6-8" ? "- Use age-appropriate vocabulary with some academic terms\n- Include interactive and collaborative activities\n- Begin introducing analytical thinking\n- Balance fun activities with serious content" : ""}
+${gradeLevel === "9-12" || gradeLevel === "College" ? "- Use sophisticated vocabulary and complex concepts\n- Focus on critical thinking and analysis\n- Include research and writing components\n- Prepare for standardized assessments" : ""}
+
 KEY REQUIREMENTS:
 1. Create 3-4 distinct lesson ideas that build upon each other in complexity
 2. Each activity must reference SPECIFIC historical documents, texts, artifacts, or sources
 3. Focus on the exact topics extracted from the standard: ${searchContext}
 4. Include real primary sources with actual excerpts when possible
 5. Provide concrete, actionable activities that teachers can implement immediately
-6. Use age-appropriate content for the specified grade level
+6. Use age-appropriate content for ${gradeRange}
 7. Include diverse perspectives and voices from the historical period
 8. Align with College Board themes and historical thinking skills
 
 LESSON STRUCTURE REQUIREMENTS:
 - Title: Clear, engaging title that mentions specific topics
 - Description: Brief overview mentioning key topics, learning approach, and College Board alignment
-- Objectives: 3-4 specific, measurable learning objectives using historical thinking skills
-- Activities: 3-4 detailed activities with specific sources and clear instructions
-- Assessment: 2-3 varied assessment methods (formative and summative) using College Board rubrics
+- Objectives: 3-4 specific, measurable learning objectives using historical thinking skills (appropriate for ${gradeRange})
+- Activities: 3-4 detailed activities with specific sources and clear instructions (age-appropriate)
+- SuggestedActivities: Include 4-5 interactive activities from this list based on grade level appropriateness: ${JSON.stringify(suggestedActivities)}
+- Assessment: 2-3 varied assessment methods (formative and summative) appropriate for ${gradeRange}
 - Time Estimate: Realistic time allocation
-- Grade Level: Appropriate for the content complexity
+- Grade Level: ${gradeLevel}
+- DetectedGradeRange: ${gradeRange}
 - Resources: 2-3 high-quality, accessible resources with working URLs
-- Primary Sources: 1-2 specific documents with actual excerpts and context
+- Primary Sources: 1-2 specific documents with actual excerpts and context (simplified for younger grades)
 - Multimedia: 1-2 relevant media types with descriptions
 
 SPECIFICITY REQUIREMENTS:
@@ -574,9 +798,11 @@ Return ONLY valid JSON following this exact structure:
       "description": "Brief description mentioning specific topics and College Board alignment",
       "objectives": ["Specific objective 1 with historical thinking skill", "Specific objective 2 with historical thinking skill", "Specific objective 3 with historical thinking skill"],
       "activities": ["Detailed activity with specific sources and College Board theme", "Another detailed activity"],
-      "assessmentIdeas": ["Specific assessment method 1 using College Board rubric", "Specific assessment method 2"],
+      "suggestedActivities": ${JSON.stringify(suggestedActivities)},
+      "assessmentIdeas": ["Specific assessment method 1 appropriate for ${gradeRange}", "Specific assessment method 2"],
       "timeEstimate": "Realistic time estimate",
-      "gradeLevel": "Appropriate grade level",
+      "gradeLevel": "${gradeLevel}",
+      "detectedGradeRange": "${gradeRange}",
       "resources": [
         {
           "title": "Specific resource title",
@@ -590,8 +816,8 @@ Return ONLY valid JSON following this exact structure:
           "title": "Specific document title",
           "author": "Actual author name",
           "date": "Specific date or time period",
-          "excerpt": "Actual excerpt from the document",
-          "context": "Historical context explanation"
+          "excerpt": "Actual excerpt from the document (simplified for ${gradeRange} if needed)",
+          "context": "Historical context explanation appropriate for ${gradeRange}"
         }
       ],
       "multimedia": [
@@ -608,7 +834,7 @@ Return ONLY valid JSON following this exact structure:
             },
             {
               role: "user",
-              content: `Generate comprehensive lesson ideas for this history teaching standard, aligned with College Board AP World History Modern themes and historical thinking skills:
+              content: `Generate comprehensive lesson ideas for this history teaching standard, aligned with College Board AP World History Modern themes and historical thinking skills, appropriate for ${gradeRange} students:
 
 ORIGINAL STANDARD: ${req.standard}
 
@@ -616,7 +842,9 @@ CLEANED STANDARD: ${cleaned}
 
 SEARCH CONTEXT: ${searchContext}
 
-Please create specific, engaging lessons that directly address these topics with concrete activities and real historical sources. Focus on making the content accessible and engaging for students while maintaining historical accuracy and incorporating College Board standards.`
+DETECTED GRADE LEVEL: ${gradeLevel} (${gradeRange})
+
+Please create specific, engaging lessons that directly address these topics with concrete activities and real historical sources. Focus on making the content accessible and engaging for ${gradeRange} students while maintaining historical accuracy and incorporating College Board standards.`
             }
           ],
           temperature: 0.6,
@@ -628,9 +856,10 @@ Please create specific, engaging lessons that directly address these topics with
         const errorText = await response.text();
         log.error(`OpenAI API error: ${response.status} - ${errorText}`);
         return { 
-          lessons: createFallbackLessons(cleaned, searchContext),
+          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
           cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' ')
+          extractedTopics: searchContext.split(' '),
+          detectedGradeLevel: gradeRange
         };
       }
 
@@ -639,9 +868,10 @@ Please create specific, engaging lessons that directly address these topics with
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
         log.error("Invalid response structure from OpenAI API");
         return { 
-          lessons: createFallbackLessons(cleaned, searchContext),
+          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
           cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' ')
+          extractedTopics: searchContext.split(' '),
+          detectedGradeLevel: gradeRange
         };
       }
 
@@ -650,9 +880,10 @@ Please create specific, engaging lessons that directly address these topics with
       if (!content) {
         log.error("Empty response from OpenAI API");
         return { 
-          lessons: createFallbackLessons(cleaned, searchContext),
+          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
           cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' ')
+          extractedTopics: searchContext.split(' '),
+          detectedGradeLevel: gradeRange
         };
       }
 
@@ -664,9 +895,10 @@ Please create specific, engaging lessons that directly address these topics with
         if (!parsedContent.lessons || !Array.isArray(parsedContent.lessons)) {
           log.error("Invalid response structure: missing lessons array");
           return { 
-            lessons: createFallbackLessons(cleaned, searchContext),
+            lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
             cleanedStandard: cleaned,
-            extractedTopics: searchContext.split(' ')
+            extractedTopics: searchContext.split(' '),
+            detectedGradeLevel: gradeRange
           };
         }
 
@@ -676,9 +908,11 @@ Please create specific, engaging lessons that directly address these topics with
           description: lesson.description || "No description provided",
           objectives: Array.isArray(lesson.objectives) ? lesson.objectives : [],
           activities: Array.isArray(lesson.activities) ? lesson.activities : [],
+          suggestedActivities: Array.isArray(lesson.suggestedActivities) ? lesson.suggestedActivities : suggestedActivities,
           assessmentIdeas: Array.isArray(lesson.assessmentIdeas) ? lesson.assessmentIdeas : [],
           timeEstimate: lesson.timeEstimate || "1-2 class periods",
-          gradeLevel: lesson.gradeLevel || "9-12",
+          gradeLevel: lesson.gradeLevel || gradeLevel,
+          detectedGradeRange: lesson.detectedGradeRange || gradeRange,
           resources: Array.isArray(lesson.resources) ? lesson.resources.map((r: any) => ({
             title: r.title || "Resource",
             url: r.url || "#",
@@ -704,24 +938,27 @@ Please create specific, engaging lessons that directly address these topics with
         return { 
           lessons: validatedLessons,
           cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' ')
+          extractedTopics: searchContext.split(' '),
+          detectedGradeLevel: gradeRange
         };
         
       } catch (parseError) {
         log.error("JSON parsing error:", parseError);
         log.error("Content that failed to parse:", content);
         return { 
-          lessons: createFallbackLessons(cleaned, searchContext),
+          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
           cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' ')
+          extractedTopics: searchContext.split(' '),
+          detectedGradeLevel: gradeRange
         };
       }
     } catch (error) {
       log.error("Error in lesson generation:", error);
       return { 
-        lessons: createFallbackLessons(cleaned, searchContext),
+        lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
         cleanedStandard: cleaned,
-        extractedTopics: searchContext.split(' ')
+        extractedTopics: searchContext.split(' '),
+        detectedGradeLevel: gradeRange
       };
     }
   }
