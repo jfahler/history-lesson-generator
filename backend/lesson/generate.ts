@@ -60,6 +60,14 @@ export interface GenerateLessonResponse {
   detectedGradeLevel: string;
 }
 
+export interface ErrorDetails {
+  code: string;
+  message: string;
+  details?: any;
+  retryable: boolean;
+  suggestedAction?: string;
+}
+
 function detectGradeLevel(standard: string): { gradeLevel: string; gradeRange: string } {
   const text = standard.toLowerCase();
   
@@ -687,54 +695,96 @@ function createFallbackLessons(standard: string, searchContext: string, detected
   return [baseLesson, comparativeLesson, impactLesson];
 }
 
-// Generates lesson ideas based on a history teaching standard.
-export const generate = api<GenerateLessonRequest, GenerateLessonResponse>(
-  { expose: true, method: "POST", path: "/lesson/generate" },
-  async (req) => {
-    log.info("Generating lesson ideas for standard:", req.standard);
+function validateInput(standard: string): void {
+  if (!standard || typeof standard !== 'string') {
+    throw APIError.invalidArgument("Teaching standard must be a non-empty string");
+  }
 
-    if (!req.standard || req.standard.trim().length === 0) {
-      throw APIError.invalidArgument("Teaching standard is required");
+  const trimmed = standard.trim();
+  if (trimmed.length === 0) {
+    throw APIError.invalidArgument("Teaching standard cannot be empty");
+  }
+
+  if (trimmed.length < 10) {
+    throw APIError.invalidArgument("Teaching standard is too short. Please provide a more detailed standard (at least 10 characters)");
+  }
+
+  if (trimmed.length > 5000) {
+    throw APIError.invalidArgument("Teaching standard is too long. Please limit to 5000 characters or less");
+  }
+
+  // Check for potentially harmful content
+  const suspiciousPatterns = [
+    /script\s*>/i,
+    /<\s*iframe/i,
+    /javascript:/i,
+    /data:text\/html/i
+  ];
+
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(trimmed)) {
+      throw APIError.invalidArgument("Teaching standard contains invalid content");
     }
+  }
+}
 
-    // Clean the standard and extract topics
-    const { cleaned, searchContext } = cleanStandard(req.standard);
-    const { gradeLevel, gradeRange } = detectGradeLevel(req.standard);
+function handleOpenAIError(error: any, response?: Response): never {
+  log.error("OpenAI API error details:", error);
+
+  if (response) {
+    const status = response.status;
     
-    log.info("Cleaned standard:", cleaned);
-    log.info("Extracted topics:", searchContext);
-    log.info("Detected grade level:", gradeLevel, gradeRange);
-
-    const apiKey = openAIKey();
-    if (!apiKey) {
-      log.error("OpenAI API key not configured");
-      // Return fallback lessons with cleaned standard and topics
-      return { 
-        lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
-        cleanedStandard: cleaned,
-        extractedTopics: searchContext.split(' '),
-        detectedGradeLevel: gradeRange
-      };
+    switch (status) {
+      case 400:
+        throw APIError.invalidArgument("Invalid request to AI service. Please check your input and try again.");
+      case 401:
+        throw APIError.internal("AI service authentication failed. Please contact support.");
+      case 403:
+        throw APIError.permissionDenied("Access to AI service denied. Please contact support.");
+      case 429:
+        throw APIError.resourceExhausted("AI service rate limit exceeded. Please try again in a few minutes.");
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        throw APIError.unavailable("AI service is temporarily unavailable. Please try again in a moment.");
+      default:
+        throw APIError.internal(`AI service error (${status}). Please try again or contact support if the issue persists.`);
     }
+  }
 
-    try {
-      log.info("Making request to OpenAI API");
-      
-      const contextualActivities = createContextualActivities(searchContext);
-      const suggestedActivities = generateSuggestedActivities(searchContext, gradeLevel);
-      
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: `You are an expert history teacher and curriculum designer with deep knowledge of world history, primary sources, and educational best practices. Your task is to create highly specific, engaging lesson ideas that directly address the provided teaching standard, aligned with College Board AP World History Modern standards.
+  // Handle network errors
+  if (error instanceof TypeError && error.message.includes('fetch')) {
+    throw APIError.unavailable("Network error connecting to AI service. Please check your connection and try again.");
+  }
+
+  // Handle timeout errors
+  if (error.name === 'AbortError' || error.message.includes('timeout')) {
+    throw APIError.deadlineExceeded("AI service request timed out. Please try again with a shorter standard or try again later.");
+  }
+
+  // Generic error
+  throw APIError.internal("Unexpected error with AI service. Please try again or contact support if the issue persists.");
+}
+
+async function makeOpenAIRequest(apiKey: string, prompt: string, contextualActivities: string[], suggestedActivities: SuggestedActivity[], gradeLevel: string, gradeRange: string): Promise<any> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert history teacher and curriculum designer with deep knowledge of world history, primary sources, and educational best practices. Your task is to create highly specific, engaging lesson ideas that directly address the provided teaching standard, aligned with College Board AP World History Modern standards.
 
 DETECTED GRADE LEVEL: ${gradeLevel} (${gradeRange})
 IMPORTANT: Adjust all content, vocabulary, activities, and assessments to be appropriate for ${gradeRange} students.
@@ -762,7 +812,7 @@ ${gradeLevel === "9-12" || gradeLevel === "College" ? "- Use sophisticated vocab
 KEY REQUIREMENTS:
 1. Create 3-4 distinct lesson ideas that build upon each other in complexity
 2. Each activity must reference SPECIFIC historical documents, texts, artifacts, or sources
-3. Focus on the exact topics extracted from the standard: ${searchContext}
+3. Focus on the exact topics extracted from the standard
 4. Include real primary sources with actual excerpts when possible
 5. Provide concrete, actionable activities that teachers can implement immediately
 6. Use age-appropriate content for ${gradeRange}
@@ -831,10 +881,84 @@ Return ONLY valid JSON following this exact structure:
     }
   ]
 }`
-            },
-            {
-              role: "user",
-              content: `Generate comprehensive lesson ideas for this history teaching standard, aligned with College Board AP World History Modern themes and historical thinking skills, appropriate for ${gradeRange} students:
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.6,
+        max_tokens: 4000
+      })
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log.error(`OpenAI API error: ${response.status} - ${errorText}`);
+      handleOpenAIError(new Error(errorText), response);
+    }
+
+    const data = await response.json();
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error("Invalid response structure from OpenAI API");
+    }
+
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw APIError.deadlineExceeded("Request timed out. Please try again with a shorter standard.");
+    }
+    
+    throw error;
+  }
+}
+
+// Generates lesson ideas based on a history teaching standard.
+export const generate = api<GenerateLessonRequest, GenerateLessonResponse>(
+  { expose: true, method: "POST", path: "/lesson/generate" },
+  async (req) => {
+    log.info("Generating lesson ideas for standard:", req.standard);
+
+    // Validate input
+    try {
+      validateInput(req.standard);
+    } catch (error) {
+      log.error("Input validation failed:", error);
+      throw error;
+    }
+
+    // Clean the standard and extract topics
+    const { cleaned, searchContext } = cleanStandard(req.standard);
+    const { gradeLevel, gradeRange } = detectGradeLevel(req.standard);
+    
+    log.info("Cleaned standard:", cleaned);
+    log.info("Extracted topics:", searchContext);
+    log.info("Detected grade level:", gradeLevel, gradeRange);
+
+    const apiKey = openAIKey();
+    if (!apiKey) {
+      log.error("OpenAI API key not configured");
+      // Return fallback lessons with cleaned standard and topics
+      return { 
+        lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
+        cleanedStandard: cleaned,
+        extractedTopics: searchContext.split(' '),
+        detectedGradeLevel: gradeRange
+      };
+    }
+
+    try {
+      log.info("Making request to OpenAI API");
+      
+      const contextualActivities = createContextualActivities(searchContext);
+      const suggestedActivities = generateSuggestedActivities(searchContext, gradeLevel);
+      
+      const prompt = `Generate comprehensive lesson ideas for this history teaching standard, aligned with College Board AP World History Modern themes and historical thinking skills, appropriate for ${gradeRange} students:
 
 ORIGINAL STANDARD: ${req.standard}
 
@@ -844,37 +968,10 @@ SEARCH CONTEXT: ${searchContext}
 
 DETECTED GRADE LEVEL: ${gradeLevel} (${gradeRange})
 
-Please create specific, engaging lessons that directly address these topics with concrete activities and real historical sources. Focus on making the content accessible and engaging for ${gradeRange} students while maintaining historical accuracy and incorporating College Board standards.`
-            }
-          ],
-          temperature: 0.6,
-          max_tokens: 4000
-        })
-      });
+Please create specific, engaging lessons that directly address these topics with concrete activities and real historical sources. Focus on making the content accessible and engaging for ${gradeRange} students while maintaining historical accuracy and incorporating College Board standards.`;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        log.error(`OpenAI API error: ${response.status} - ${errorText}`);
-        return { 
-          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
-          cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' '),
-          detectedGradeLevel: gradeRange
-        };
-      }
-
-      const data = await response.json();
+      const data = await makeOpenAIRequest(apiKey, prompt, contextualActivities, suggestedActivities, gradeLevel, gradeRange);
       
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        log.error("Invalid response structure from OpenAI API");
-        return { 
-          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
-          cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' '),
-          detectedGradeLevel: gradeRange
-        };
-      }
-
       const content = data.choices[0].message.content;
       
       if (!content) {
@@ -945,21 +1042,18 @@ Please create specific, engaging lessons that directly address these topics with
       } catch (parseError) {
         log.error("JSON parsing error:", parseError);
         log.error("Content that failed to parse:", content);
-        return { 
-          lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
-          cleanedStandard: cleaned,
-          extractedTopics: searchContext.split(' '),
-          detectedGradeLevel: gradeRange
-        };
+        throw APIError.internal("Failed to parse AI response. Please try again.");
       }
     } catch (error) {
       log.error("Error in lesson generation:", error);
-      return { 
-        lessons: createFallbackLessons(cleaned, searchContext, gradeLevel),
-        cleanedStandard: cleaned,
-        extractedTopics: searchContext.split(' '),
-        detectedGradeLevel: gradeRange
-      };
+      
+      // If it's already an APIError, re-throw it
+      if (error instanceof APIError) {
+        throw error;
+      }
+      
+      // Handle other errors
+      handleOpenAIError(error);
     }
   }
 );
