@@ -116,7 +116,7 @@ Write better standards for better output:
 ## 👤 Author
 
 Built with ❤️ by Joshua Fahler  
-[Website](https://jfahler.com) • [LinkedIn](https://linkedin.com/in/jfahler)
+[Website](https://joshfahler.com) • [LinkedIn](https://linkedin.com/in/jfahler)
 
 ---
 
